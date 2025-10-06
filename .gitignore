@@ -16,6 +16,8 @@ eggs/
 .eggs/
 lib/
 lib64/
+bin/
+include/
 parts/
 sdist/
 var/
@@ -25,6 +27,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+pyvenv.cfg
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
