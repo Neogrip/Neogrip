@@ -7,7 +7,9 @@ Wants=network-online.target
 Type=simple
 User=eegsvc
 Group=eegsvc
-WorkingDirectory=/opt/neogrip
+StateDirectory=neogrip
+StateDirectoryMode=0755
+WorkingDirectory=/var/lib/neogrip
 EnvironmentFile=/etc/neogrip/secrets.env
 
 ExecStart=/usr/bin/python3 /opt/neogrip/main.py
