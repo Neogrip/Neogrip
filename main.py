@@ -17,21 +17,33 @@ class MotorConfig:
     brake_on_stop_from_open: bool = True
     brake_us: int = 1000
     brake_time_s: float = 0.10
+    max_open_angle_deg: float = 90.0
+    min_open_angle_deg: float = 0.0
+    timer_of_execution: float = 0.5  # secondes pour un mouvement complet open/close
 
 
 PCA_FREQUENCY_HZ = int(os.getenv("PCA_FREQUENCY_HZ", "330"))
 
+# MOTORS: Dict[str, MotorConfig] = {
+#     "thumb":  MotorConfig(channel=0,  stop_us=2000, open_us=3000, close_us=1000),
+#     "index":  MotorConfig(channel=3,  stop_us=2000, open_us=3000, close_us=1000),
+#     "middle": MotorConfig(channel=7,  stop_us=2000, open_us=3000, close_us=1000),
+#     "ring":   MotorConfig(channel=11, stop_us=2000, open_us=3000, close_us=1000),
+#     "pinky":  MotorConfig(channel=15, stop_us=2000, open_us=3000, close_us=1000),
+# }
 MOTORS: Dict[str, MotorConfig] = {
-    "thumb":  MotorConfig(channel=0,  stop_us=2000, open_us=3000, close_us=1000),
-    "index":  MotorConfig(channel=3,  stop_us=2000, open_us=3000, close_us=1000),
-    "middle": MotorConfig(channel=7,  stop_us=2000, open_us=3000, close_us=1000),
-    "ring":   MotorConfig(channel=11, stop_us=2000, open_us=3000, close_us=1000),
-    "pinky":  MotorConfig(channel=15, stop_us=2000, open_us=3000, close_us=1000),
+    "thumb":  MotorConfig(channel=0,  stop_us=2000, open_us=2142, close_us=1700),
+    "index":  MotorConfig(channel=3,  stop_us=2000, open_us=2142, close_us=1700),
+    "middle": MotorConfig(channel=7,  stop_us=2000, open_us=2142, close_us=1700),
+    "ring":   MotorConfig(channel=11, stop_us=2000, open_us=2142, close_us=1700),
+    "pinky":  MotorConfig(channel=15, stop_us=2000, open_us=2142, close_us=1700),
 }
 FINGERS = list(MOTORS.keys())
+SINGLE_FINGER_MODE = os.getenv("SINGLE_FINGER_MODE", "1") == "1"  # "1" => un seul doigt
+ACTIVE_FINGER = os.getenv("ACTIVE_FINGER", "index")               # thumb/index/middle/ring/pinky
 
-POW_ON = float(os.getenv("EMOTIV_POW_ON", "0.55"))
-POW_OFF = float(os.getenv("EMOTIV_POW_OFF", "0.45"))
+POW_ON = float(os.getenv("EMOTIV_POW_ON", "0.35"))
+POW_OFF = float(os.getenv("EMOTIV_POW_OFF", "0.25"))
 MIN_COMMAND_INTERVAL_S = float(os.getenv("MIN_CMD_INTERVAL", "0.12"))
 
 
@@ -83,6 +95,10 @@ class ServoMotor:
         self.backend.set_us(self.cfg.channel, self.cfg.stop_us)
         self.state = "stop"
 
+    def hard_stop(self) -> None:
+        # stop immédiat, sans frein ni sleep
+        self.backend.set_us(self.cfg.channel, self.cfg.stop_us)
+        self.state = "stop"
 
 class HandController:
     def __init__(self, backend, pow_on: float, pow_off: float, min_interval_s: float):
@@ -105,6 +121,34 @@ class HandController:
     async def stop_all(self) -> None:
         await self._apply_all("stop")
 
+    def hard_stop_all(self) -> None:
+        for m in self.motors.values():
+            m.hard_stop()
+        self._hand_state = "stop"
+        self._last_cmd_t = time.time()
+
+    async def _apply_one(self, finger: str, action: str) -> None:
+        m = self.motors[finger]
+        if action == "open":
+            await m.open()
+        elif action == "close":
+            await m.close()
+        else:
+            await m.stop()
+
+    async def _apply_action(self, action: str) -> None:
+        """
+        Applique l'action soit à toute la main (comportement historique),
+        soit à un seul doigt (mode single-finger), sans supprimer la logique main entière.
+        """
+        if SINGLE_FINGER_MODE:
+            # Optionnel mais conseillé: garantir que les autres sont stoppés
+            # await asyncio.gather(*(m.stop() for name, m in self.motors.items() if name != ACTIVE_FINGER))
+            await self._apply_one(ACTIVE_FINGER, action)
+        else:
+            await self._apply_all(action)
+
+
     async def apply_com(self, act: str, pow_: float) -> Optional[str]:
         now = time.time()
         if now - self._last_cmd_t < self.min_interval_s:
@@ -123,14 +167,14 @@ class HandController:
         if target == self._hand_state:
             return None
 
-        await self._apply_all(target)
+        await self._apply_action(target)
         self._hand_state = target
         self._last_cmd_t = now
         return target
 
 
 # ---------------- TCP server ----------------
-async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, hand: HandController):
+async def handle_client(reader, writer, hand: HandController, shutdown_event: asyncio.Event):
     addr = writer.get_extra_info("peername")
     print(f"[SERVER] Client connecté: {addr}")
 
@@ -144,6 +188,13 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
             except json.JSONDecodeError:
                 continue
 
+            # --- KILLSWITCH
+            if str(msg.get("act", "")).upper() == "KILLSWITCH":
+                print("[SERVER] KILLSWITCH reçu -> HARD STOP + shutdown")
+                hand.hard_stop_all()
+                shutdown_event.set()
+                break
+
             if msg.get("type") != "com":
                 continue
 
@@ -154,10 +205,6 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
             if new_state:
                 print(f"[SERVER] com act={act} pow={pow_:.3f} => hand={new_state}")
 
-    except asyncio.CancelledError:
-        raise
-    except Exception as e:
-        print(f"[SERVER] erreur client {addr}: {e}")
     finally:
         print(f"[SERVER] Client déconnecté: {addr}")
         writer.close()
@@ -166,24 +213,33 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
 
 async def main():
     host = os.getenv("NEOGRIP_BIND", "0.0.0.0")
-    port = int(os.getenv("NEOGRIP_SERVER_PORT", "8765"))
+    port = int(os.getenv("NEOGRIP_SERVER_PORT", "8764"))
 
     backend = PCA9685Backend(PCA_FREQUENCY_HZ)
     hand = HandController(backend, POW_ON, POW_OFF, MIN_COMMAND_INTERVAL_S)
 
-    server = await asyncio.start_server(lambda r, w: handle_client(r, w, hand), host, port)
+    shutdown_event = asyncio.Event()
+
+    server = await asyncio.start_server(
+        lambda r, w: handle_client(r, w, hand, shutdown_event),
+        host, port
+    )
+
     addrs = ", ".join(str(s.getsockname()) for s in server.sockets or [])
     print(f"[SERVER] Listen on {addrs}")
     print("[SERVER] Mapping: push=open, pull=close, sinon stop (hystérésis).")
 
     try:
         async with server:
-            await server.serve_forever()
+            await shutdown_event.wait()
     finally:
+        server.close()
+        await server.wait_closed()
         try:
             await hand.stop_all()
         finally:
             backend.deinit()
+
 
 
 if __name__ == "__main__":
