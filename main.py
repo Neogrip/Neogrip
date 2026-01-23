@@ -13,7 +13,6 @@ from neogrip.hand_controller import HandController
 
 async def run():
     cortex = CortexClient(CORTEX_URL, CLIENT_ID, CLIENT_SECRET, debit=DEBIT)
-    #backend = PCA9685Backend(PCA_FREQUENCY_HZ)
     backend = make_backend(PCA_FREQUENCY_HZ)
     hand = HandController(backend, POW_ON, POW_OFF, MIN_COMMAND_INTERVAL_S)
 
