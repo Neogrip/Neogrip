@@ -1,0 +1,26 @@
+[Unit]
+Description=neogrip, prothèse sécurisé
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=eegsvc
+Group=eegsvc
+RuntimeDirectory=neogrip
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=restart
+WorkingDirectory=/run/neogrip
+
+EnvironmentFile=/etc/neogrip/secrets.env
+ExecStart=/usr/bin/python3 /opt/neogrip/main.py
+
+Restart=on-failure
+RestartSec=2
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
