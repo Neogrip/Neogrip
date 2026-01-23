@@ -51,7 +51,7 @@ usermod -g "${APP_GROUP}" "${APP_USER}" >/dev/null 2>&1 || true
 
 # Accès I2C (important pour Adafruit ServoKit / PCA9685)
 if getent group i2c >/dev/null 2>&1; then
-  usermod -aG i2c "${APP_USER}" || true
+  usermod -aG i2c,gpio "${APP_USER}" || true
 fi
 
 echo "[3/10] Installation / mise à jour dans ${INSTALL_DIR}…"
