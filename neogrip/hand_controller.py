@@ -2,7 +2,7 @@ import asyncio
 import time
 from typing import Optional
 
-from config import MOTORS, FINGERS
+from .config import MOTORS, FINGERS
 
 
 class HandController:
@@ -12,7 +12,7 @@ class HandController:
         self.pow_off = pow_off
         self.min_interval_s = min_interval_s
 
-        from servo_motor import ServoMotor
+        from .servo_motor import ServoMotor
         self.motors = {name: ServoMotor(name, cfg, backend) for name, cfg in MOTORS.items()}
 
         self._hand_state = "stop"

@@ -62,10 +62,10 @@ sudo bash install.sh
 
 Le script permet de :
 - Installer les dépendances système,
-- déploier l'application sous `/opt/neogrip`,
+- déployer l'application sous `/opt/neogrip`,
 - créer un environnement virtuel Python,
 - installer les dépendances (`requirements.txt`)
-- déploier un service `neogrip.service`,
+- déployer un service `neogrip.service`,
 - mettre en place un fichier de configuration/secrets `/etc/neogrip/secrets.env`
 
 ### 3) Renseigner les secrets et la configuration
@@ -124,7 +124,7 @@ sudo nano /etc/neogrip/secrets.env
 NEOGRIP_DEV=1
 ```
 
-puis effectué :
+puis effectuer :
 
 ```bash
 sudo systemctl restart neogrip.service
