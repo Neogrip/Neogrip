@@ -15,6 +15,8 @@ class ServoBackend:
         raise NotImplementedError
     def deinit(self) -> None:
         pass
+    def set_digital(self, channel: int, value: bool) -> None:
+        raise NotImplementedError
 
 class NullBackend(ServoBackend):
     """
@@ -28,6 +30,8 @@ class NullBackend(ServoBackend):
     def set_us(self, channel: int, pulse_us: int) -> None:
         self.last[channel] = pulse_us
         print(f"[DEV] ch={channel:02d} pulse={pulse_us}us (freq={self.cfg.frequency_hz}Hz)")
+    def set_digital(self, channel: int, value: bool) -> None:
+        print(f"[DEV] ch={channel:02d} digital={value}")
 
 class PCA9685Backend(ServoBackend):
     """
@@ -49,6 +53,9 @@ class PCA9685Backend(ServoBackend):
 
     def deinit(self) -> None:
         self.pca.deinit()
+
+    def set_digital(self, channel: int, value: bool) -> None:
+        self.pca.channels[channel].duty_cycle = 0xFFFF if value else 0x0000
 
 def make_backend(frequency_hz: int) -> ServoBackend:
     """

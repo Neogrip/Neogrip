@@ -40,6 +40,22 @@ MOTORS = {
     "ring":   MotorConfig(channel=11, stop_us=2000, open_us=3000, close_us=1000),
     "pinky":  MotorConfig(channel=15, stop_us=2000, open_us=3000, close_us=1000),
 }
+
+@dataclass
+class LinearMotorConfig:
+    in1: int
+    in2: int
+    travel_time_s: float  # temps full course utile
+
+LINEAR_MOTORS = {
+    "thumb":  LinearMotorConfig(in1=0, in2=1, travel_time_s=0),
+    "index":  LinearMotorConfig(in1=2, in2=3, travel_time_s=0),
+    "middle": LinearMotorConfig(in1=6, in2=7, travel_time_s=0),
+    "ring":   LinearMotorConfig(in1=10, in2=11, travel_time_s=0),
+    "pinky":  LinearMotorConfig(in1=14, in2=15, travel_time_s=0),
+}
+
+# This code hadn't been changed: it simply gathers the finger names
 FINGERS = list(MOTORS.keys())
 
 # ---- Mapping Mental Commands -> main ----

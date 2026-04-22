@@ -2,7 +2,7 @@ import asyncio
 import time
 from typing import Optional
 
-from .config import MOTORS, FINGERS
+from .config import MOTORS, LINEAR_MOTORS, FINGERS
 
 
 class HandController:
@@ -13,8 +13,9 @@ class HandController:
         self.min_interval_s = min_interval_s
 
         from .servo_motor import ServoMotor
-        self.motors = {name: ServoMotor(name, cfg, backend) for name, cfg in MOTORS.items()}
-
+        from .linear_motor import LinearMotor
+        #self.motors = {name: ServoMotor(name, cfg, backend) for name, cfg in MOTORS.items()}
+        self.motors = {name: LinearMotor(name, cfg, backend) for name, cfg in LINEAR_MOTORS.items()}
         self._hand_state = "stop"
         self._last_cmd_t = 0.0
 
@@ -43,7 +44,7 @@ class HandController:
         target = self._hand_state
 
         if act == "push" and pow_ >= self.pow_on:
-            target = "open"
+            target = "close"
         elif act == "pull" and pow_ >= self.pow_on:
             target = "close"
         else:
